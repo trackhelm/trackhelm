@@ -78,6 +78,48 @@ class RpcCallback:
 
 
 @dataclass(slots=True)
+class StartServerInternetConfig:
+    """Configuration for `StartServerInternet`."""
+
+    login: str
+    password: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "Login": self.login,
+            "Password": self.password,
+        }
+
+
+@dataclass(slots=True)
+class LocalizedText:
+    """Localized chat or server-message entry."""
+
+    lang: str
+    text: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "Lang": self.lang,
+            "Text": self.text,
+        }
+
+
+@dataclass(slots=True)
+class PlayerScore:
+    """Score override entry for `ForceScores`."""
+
+    player_id: int
+    score: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "PlayerId": self.player_id,
+            "Score": self.score,
+        }
+
+
+@dataclass(slots=True)
 class ChallengeInfo:
     """Challenge (map) information model.
 
@@ -394,6 +436,12 @@ class ForcedMod:
             url=_as_str(data.get("Url")),
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "EnvName": self.environment_name,
+            "Url": self.url,
+        }
+
 
 @dataclass(slots=True)
 class ForcedMods:
@@ -452,6 +500,68 @@ class ForcedSkin:
             checksum=_as_str(data.get("Checksum")),
             url=_as_str(data.get("Url")),
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "Orig": self.orig,
+            "Name": self.name,
+            "Checksum": self.checksum,
+            "Url": self.url,
+        }
+
+
+@dataclass(slots=True)
+class ServerOptionsUpdate:
+    """Configuration payload for `SetServerOptions`."""
+
+    name: str
+    comment: str
+    password: str
+    password_for_spectator: str
+    next_max_players: int
+    next_max_spectators: int
+    is_p2p_upload: bool
+    is_p2p_download: bool
+    next_ladder_mode: int
+    next_vehicle_net_quality: int
+    next_call_vote_timeout: int
+    call_vote_ratio: float
+    allow_challenge_download: bool
+    auto_save_replays: bool
+    referee_password: str | None = None
+    referee_mode: int | None = None
+    auto_save_validation_replays: bool | None = None
+    hide_server: int | None = None
+    use_changing_validation_seed: bool | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "Name": self.name,
+            "Comment": self.comment,
+            "Password": self.password,
+            "PasswordForSpectator": self.password_for_spectator,
+            "NextMaxPlayers": self.next_max_players,
+            "NextMaxSpectators": self.next_max_spectators,
+            "IsP2PUpload": self.is_p2p_upload,
+            "IsP2PDownload": self.is_p2p_download,
+            "NextLadderMode": self.next_ladder_mode,
+            "NextVehicleNetQuality": self.next_vehicle_net_quality,
+            "NextCallVoteTimeOut": self.next_call_vote_timeout,
+            "CallVoteRatio": self.call_vote_ratio,
+            "AllowChallengeDownload": self.allow_challenge_download,
+            "AutoSaveReplays": self.auto_save_replays,
+        }
+        if self.referee_password is not None:
+            data["RefereePassword"] = self.referee_password
+        if self.referee_mode is not None:
+            data["RefereeMode"] = self.referee_mode
+        if self.auto_save_validation_replays is not None:
+            data["AutoSaveValidationReplays"] = self.auto_save_validation_replays
+        if self.hide_server is not None:
+            data["HideServer"] = self.hide_server
+        if self.use_changing_validation_seed is not None:
+            data["UseChangingValidationSeed"] = self.use_changing_validation_seed
+        return data
 
 
 @dataclass(slots=True)
@@ -572,6 +682,97 @@ class GameInfo:
             cup_nb_winners=_as_int(data.get("CupNbWinners")),
             cup_warm_up_duration=_as_int(data.get("CupWarmUpDuration")),
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "GameMode": self.game_mode,
+            "ChatTime": self.chat_time,
+            "NbChallenge": self.nb_challenge,
+            "RoundsPointsLimit": self.rounds_points_limit,
+            "RoundsUseNewRules": self.rounds_use_new_rules,
+            "RoundsForcedLaps": self.rounds_forced_laps,
+            "TimeAttackLimit": self.time_attack_limit,
+            "TimeAttackSynchStartPeriod": self.time_attack_synch_start_period,
+            "TeamPointsLimit": self.team_points_limit,
+            "TeamMaxPoints": self.team_max_points,
+            "TeamUseNewRules": self.team_use_new_rules,
+            "LapsNbLaps": self.laps_nb_laps,
+            "LapsTimeLimit": self.laps_time_limit,
+            "FinishTimeout": self.finish_timeout,
+            "AllWarmUpDuration": self.all_warm_up_duration,
+            "DisableRespawn": self.disable_respawn,
+            "ForceShowAllOpponents": self.force_show_all_opponents,
+            "RoundsPointsLimitNewRules": self.rounds_points_limit_new_rules,
+            "TeamPointsLimitNewRules": self.team_points_limit_new_rules,
+            "CupPointsLimit": self.cup_points_limit,
+            "CupRoundsPerChallenge": self.cup_rounds_per_challenge,
+            "CupNbWinners": self.cup_nb_winners,
+            "CupWarmUpDuration": self.cup_warm_up_duration,
+        }
+
+
+@dataclass(slots=True)
+class GameInfoSettings:
+    """Configuration payload for `SetGameInfos`."""
+
+    game_mode: int
+    chat_time: int
+    rounds_points_limit: int
+    rounds_use_new_rules: bool
+    rounds_forced_laps: int
+    time_attack_limit: int
+    time_attack_synch_start_period: int
+    team_points_limit: int
+    team_max_points: int
+    team_use_new_rules: bool
+    laps_nb_laps: int
+    laps_time_limit: int
+    finish_timeout: int
+    all_warm_up_duration: int | None = None
+    disable_respawn: bool | None = None
+    force_show_all_opponents: int | None = None
+    rounds_points_limit_new_rules: int | None = None
+    team_points_limit_new_rules: int | None = None
+    cup_points_limit: int | None = None
+    cup_rounds_per_challenge: int | None = None
+    cup_nb_winners: int | None = None
+    cup_warm_up_duration: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "GameMode": self.game_mode,
+            "ChatTime": self.chat_time,
+            "RoundsPointsLimit": self.rounds_points_limit,
+            "RoundsUseNewRules": self.rounds_use_new_rules,
+            "RoundsForcedLaps": self.rounds_forced_laps,
+            "TimeAttackLimit": self.time_attack_limit,
+            "TimeAttackSynchStartPeriod": self.time_attack_synch_start_period,
+            "TeamPointsLimit": self.team_points_limit,
+            "TeamMaxPoints": self.team_max_points,
+            "TeamUseNewRules": self.team_use_new_rules,
+            "LapsNbLaps": self.laps_nb_laps,
+            "LapsTimeLimit": self.laps_time_limit,
+            "FinishTimeout": self.finish_timeout,
+        }
+        if self.all_warm_up_duration is not None:
+            data["AllWarmUpDuration"] = self.all_warm_up_duration
+        if self.disable_respawn is not None:
+            data["DisableRespawn"] = self.disable_respawn
+        if self.force_show_all_opponents is not None:
+            data["ForceShowAllOpponents"] = self.force_show_all_opponents
+        if self.rounds_points_limit_new_rules is not None:
+            data["RoundsPointsLimitNewRules"] = self.rounds_points_limit_new_rules
+        if self.team_points_limit_new_rules is not None:
+            data["TeamPointsLimitNewRules"] = self.team_points_limit_new_rules
+        if self.cup_points_limit is not None:
+            data["CupPointsLimit"] = self.cup_points_limit
+        if self.cup_rounds_per_challenge is not None:
+            data["CupRoundsPerChallenge"] = self.cup_rounds_per_challenge
+        if self.cup_nb_winners is not None:
+            data["CupNbWinners"] = self.cup_nb_winners
+        if self.cup_warm_up_duration is not None:
+            data["CupWarmUpDuration"] = self.cup_warm_up_duration
+        return data
 
 
 @dataclass(slots=True)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -11,19 +10,25 @@ from .models import BoolSetting
 from .models import CallVoteInfo
 from .models import ChallengeInfo
 from .models import DetailedPlayerInfo
+from .models import ForcedMod
 from .models import ForcedMods
 from .models import ForcedMusic
 from .models import ForcedSkin
 from .models import GameInfo
 from .models import GameInfos
+from .models import GameInfoSettings
 from .models import IntSetting
 from .models import LadderServerLimits
+from .models import LocalizedText
 from .models import LoginEntry
 from .models import ManialinkPageAnswer
 from .models import NetworkStats
 from .models import PlayerInfo
 from .models import PlayerRanking
+from .models import PlayerScore
 from .models import ServerOptions
+from .models import ServerOptionsUpdate
+from .models import StartServerInternetConfig
 from .models import StatusInfo
 from .models import SystemInfo
 from .models import VersionInfo
@@ -206,7 +211,7 @@ class GbxMethodsMixin:
         return bool(result)
 
     async def chat_send_server_message_to_language(
-        self, texts: list[dict[str, Any]], login: Optional[str]
+        self, texts: list[LocalizedText], login: Optional[str]
     ) -> bool:
         """Send localized server messages to clients.
 
@@ -214,7 +219,8 @@ class GbxMethodsMixin:
         a specific `login` (single or comma-separated list). Returns True on
         success.
         """
-        params = [texts, login] if login is not None else [texts]
+        localized_texts = [text.to_dict() for text in texts]
+        params = [localized_texts, login] if login is not None else [localized_texts]
         result = await self.call("ChatSendServerMessageToLanguage", params)
         return bool(result)
 
@@ -244,14 +250,15 @@ class GbxMethodsMixin:
         return bool(result)
 
     async def chat_send_to_language(
-        self, texts: list[dict[str, Any]], login: Optional[str]
+        self, texts: list[LocalizedText], login: Optional[str]
     ) -> bool:
         """Send localized chat messages to clients or a particular login.
 
         `texts` is an array of {Lang, Text} structures. Optionally supply a
         `login` to limit recipients. Returns True on success.
         """
-        params = [texts, login] if login is not None else [texts]
+        localized_texts = [text.to_dict() for text in texts]
+        params = [localized_texts, login] if login is not None else [localized_texts]
         result = await self.call("ChatSendToLanguage", params)
         return bool(result)
 
@@ -793,13 +800,13 @@ class GbxMethodsMixin:
         result = await self.call("StartServerLan", [])
         return bool(result)
 
-    async def start_server_internet(self, config: Dict[str, Any]) -> bool:
+    async def start_server_internet(self, config: StartServerInternetConfig) -> bool:
         """Start the server on the internet using provided `config`.
 
-        The `config` dict usually contains 'Login' and 'Password'. Returns
+        The config payload carries the server 'Login' and 'Password'. Returns
         True on success.
         """
-        result = await self.call("StartServerInternet", [config])
+        result = await self.call("StartServerInternet", [config.to_dict()])
         return bool(result)
 
     async def get_status(self) -> StatusInfo:
@@ -1053,9 +1060,9 @@ class GbxMethodsMixin:
         result = await self.call("GetVehicleNetQuality", [])
         return IntSetting.from_dict({} if result is None else dict(result))
 
-    async def set_server_options(self, options: Dict[str, Any]) -> bool:
+    async def set_server_options(self, options: ServerOptionsUpdate) -> bool:
         """Set multiple server options using the provided struct."""
-        result = await self.call("SetServerOptions", [options])
+        result = await self.call("SetServerOptions", [options.to_dict()])
         return bool(result)
 
     async def get_server_options(self, struct_version: Optional[int] = None) -> ServerOptions:
@@ -1082,9 +1089,9 @@ class GbxMethodsMixin:
         result = await self.call("GetServerPackMask", [])
         return "" if result is None else str(result)
 
-    async def set_forced_mods(self, override: bool, mods: List[Dict[str, Any]]) -> bool:
+    async def set_forced_mods(self, override: bool, mods: List[ForcedMod]) -> bool:
         """Set forced client mods for one or more environments."""
-        result = await self.call("SetForcedMods", [override, mods])
+        result = await self.call("SetForcedMods", [override, [mod.to_dict() for mod in mods]])
         return bool(result)
 
     async def get_forced_mods(self) -> ForcedMods:
@@ -1105,9 +1112,9 @@ class GbxMethodsMixin:
         result = await self.call("GetForcedMusic", [])
         return ForcedMusic.from_dict({} if result is None else dict(result))
 
-    async def set_forced_skins(self, skins: List[Dict[str, Any]]) -> bool:
+    async def set_forced_skins(self, skins: List[ForcedSkin]) -> bool:
         """Set the forced-skin remapping list."""
-        result = await self.call("SetForcedSkins", [skins])
+        result = await self.call("SetForcedSkins", [[skin.to_dict() for skin in skins]])
         return bool(result)
 
     async def get_forced_skins(self) -> List[ForcedSkin]:
@@ -1205,9 +1212,9 @@ class GbxMethodsMixin:
         result = await self.call("ForceEndRound", [])
         return bool(result)
 
-    async def set_game_infos(self, game_infos: Dict[str, Any]) -> bool:
+    async def set_game_infos(self, game_infos: GameInfoSettings) -> bool:
         """Set next game settings using the provided struct."""
-        result = await self.call("SetGameInfos", [game_infos])
+        result = await self.call("SetGameInfos", [game_infos.to_dict()])
         return bool(result)
 
     async def get_current_game_info(self, struct_version: Optional[int] = None) -> GameInfo:
@@ -1593,10 +1600,10 @@ class GbxMethodsMixin:
         return [PlayerRanking.from_dict(dict(item)) for item in result]
 
     async def force_scores(
-        self, scores: List[Dict[str, Any]], silent_mode: Optional[bool] = None
+        self, scores: List[PlayerScore], silent_mode: Optional[bool] = None
     ) -> bool:
         """Force current scores in rounds or team mode."""
-        params: List[Any] = [scores]
+        params: List[Any] = [[score.to_dict() for score in scores]]
         if silent_mode is not None:
             params.append(silent_mode)
         result = await self.call("ForceScores", params)
