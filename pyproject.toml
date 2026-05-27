@@ -8,7 +8,7 @@ version = "0.0.1"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "GPL-3.0-only"
 authors = [{ name = "malun22" }]
 keywords = []
 dependencies = [

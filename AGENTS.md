@@ -296,14 +296,5 @@ and focused manual or integration checks when changing behavior.
 
 ## Current Repository Notes
 
-- `pyproject.toml` says the license is MIT, but `LICENSE` contains GPLv3 text.
-  Resolve that mismatch before publishing packages.
-- `pyproject.toml` points at `README.md`, but there is no top-level README in
-  this checkout.
 - The config class name `PysecoConfig` appears to be legacy naming. Do not
   rename it casually because it is exported from `pytroller.__init__`.
-- `plugins/` is ignored, but there is a local example plugin under
-  `plugins/pytroller-welcome`. Treat it as local reference material unless it is
-  intentionally added to version control.
-- `pytroller.db` is currently tracked. Be careful with schema or data changes in
-  that file.
