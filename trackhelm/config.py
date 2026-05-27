@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import tomllib
 from typing import Any
 from typing import Dict
 
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import PrivateAttr
-import tomli
 
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class TrackHelmConfig(BaseModel):
         """
 
         with path.open("rb") as fh:
-            raw = tomli.load(fh)
+            raw = tomllib.load(fh)
 
         server_data = raw.get("server", {})
         database_data = raw.get("database", {})
@@ -98,7 +98,7 @@ class TrackHelmConfig(BaseModel):
             if file_path.exists():
                 try:
                     with file_path.open("rb") as fh:
-                        cfg._plugin_configs[key] = tomli.load(fh)
+                        cfg._plugin_configs[key] = tomllib.load(fh)
                 except Exception:
                     logger.exception("Failed to load plugin config from %s", file_path)
                     cfg._plugin_configs[key] = {}

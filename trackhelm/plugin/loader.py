@@ -5,9 +5,9 @@ from graphlib import TopologicalSorter
 from importlib.metadata import entry_points
 import logging
 from pathlib import Path
+import tomllib
 from typing import Any
 
-import tomli
 import tomli_w
 
 from .base import Plugin
@@ -134,7 +134,7 @@ def _sync_plugin_config(key: str, cls: type[Plugin[Any]], plugins_dir: Path) -> 
     if config_path.exists():
         try:
             with config_path.open("rb") as fh:
-                loaded = tomli.load(fh)
+                loaded = tomllib.load(fh)
             if isinstance(loaded, dict):
                 raw = loaded
         except Exception:

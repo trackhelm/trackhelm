@@ -9,6 +9,8 @@ game server, authenticates with an admin account, enables server callbacks,
 exposes typed helpers for GBX XML-RPC methods, and gives plugins a clean,
 typed way to react to server events.
 
+The project targets Python 3.14 or newer.
+
 Purpose
 -------
 
