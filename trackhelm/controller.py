@@ -7,7 +7,6 @@ from typing import Any
 
 from .config import TrackHelmConfig
 from .database import DatabaseManager
-from .database import models as _database_models  # noqa: F401
 from .eventbus.bus import EventBus
 from .gbx.client import GbxClient
 from .logging import setup_logging

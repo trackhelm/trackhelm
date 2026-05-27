@@ -41,8 +41,8 @@ Startup flow:
 4. `Controller.start()` connects to the TrackMania server through GBXRemote.
 5. Enabled plugins are discovered, dependency-sorted, instantiated, configured,
    and set up.
-6. The database is initialized after core models are imported and before plugin
-   setup completes.
+6. The database is initialized after any plugin models are imported and before
+   plugin setup completes.
 7. The GBX listener task runs continuously and feeds callbacks into the event
    bus.
 8. Shutdown tears down plugins in reverse registration order, cancels the GBX
@@ -125,8 +125,8 @@ contents are versioned unless `git ls-files` says they are.
   `Base.metadata`.
 - `DatabaseManager.session()` yields an `AsyncSession` inside a transaction,
   committing on normal exit and rolling back on exception.
-- The core currently defines a `users` table in
-  `trackhelm/database/models/user.py`.
+- The core currently ships with no built-in database tables. Plugins can
+  register their own models on the shared declarative base.
 
 `trackhelm/plugin/`
 
@@ -244,9 +244,8 @@ version table.
 Use `async with self.db.session() as session:` inside plugins and controller
 code. The context manager already opens a transaction and closes the session.
 
-Keep shared user identity in the core `users` table. Store plugin-specific
-state in plugin-owned tables rather than adding unrelated columns to core
-models.
+Store plugin-specific state in plugin-owned tables rather than expecting core
+tables from the controller package.
 
 - When adding models:
 
