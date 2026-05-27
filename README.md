@@ -1,4 +1,4 @@
-[![trackhelm logo](https://raw.githubusercontent.com/trackhelm/trackhelm/main/docs/image/trackhelm-icon.png)](https://github.com/trackhelm/trackhelm)
+[![trackhelm banner](https://raw.githubusercontent.com/trackhelm/trackhelm/main/docs/image/trackhelm-banner.png)](https://github.com/trackhelm/trackhelm)
 
 TrackHelm
 ========
