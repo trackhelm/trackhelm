@@ -7,7 +7,7 @@ name = "trackhelm"
 version = "0.0.1"
 description = ""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 license = "GPL-3.0-only"
 authors = [{ name = "malun22" }]
 keywords = []
@@ -36,7 +36,7 @@ trackhelm = ["py.typed"]
 
 [tool.ruff]
 line-length = 99
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -57,7 +57,7 @@ order-by-type = false
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

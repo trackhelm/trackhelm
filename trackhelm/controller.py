@@ -138,12 +138,7 @@ class Controller:
         config = TrackHelmConfig.from_file(Path(config_path))
 
         level_name = config.logging.level.upper()
-        # Use getLevelNamesMapping() when available (Python 3.11+),
-        # otherwise fall back to the internal mapping for older Pythons.
-        if hasattr(logging, "getLevelNamesMapping"):
-            level = logging.getLevelNamesMapping().get(level_name, logging.INFO)
-        else:
-            level = logging._nameToLevel.get(level_name, logging.INFO)
+        level = logging.getLevelNamesMapping().get(level_name, logging.INFO)
 
         setup_logging(
             Path(config.logging.dir),
@@ -159,7 +154,9 @@ class Controller:
         try:
             await self.start()
             await asyncio.Event().wait()
-        except (KeyboardInterrupt, asyncio.CancelledError):
+        except KeyboardInterrupt:
+            pass
+        except asyncio.CancelledError:
             pass
         finally:
             await self.stop()

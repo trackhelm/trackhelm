@@ -88,7 +88,7 @@ contents are versioned unless `git ls-files` says they are.
 `trackhelm/config.py`
 
 - Defines Pydantic config models for server, database, logging, and plugins.
-- Loads TOML with `tomli`.
+- Loads TOML with `tomllib`.
 - Stores raw plugin config dictionaries privately and exposes them through
   `plugin_config(key)`.
 
@@ -315,7 +315,7 @@ tables from the controller package.
 
 ## Development Workflow
 
-The package targets Python 3.10+ and is typed via `trackhelm/py.typed`.
+The package targets Python 3.14+ and is typed via `trackhelm/py.typed`.
 
 Useful commands:
 
