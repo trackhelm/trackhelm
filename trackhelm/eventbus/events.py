@@ -177,6 +177,12 @@ class ChatCommand(BaseEvent):
     args: list[str]
 
 
+@register_event("TrackHelm.ControllerTick")
+@dataclass(slots=True)
+class ControllerTick(BaseEvent):
+    """Fired once per second while the controller is running."""
+
+
 @register_event("TrackMania.PlayerManialinkPageAnswer")
 @dataclass(slots=True)
 class PlayerManialinkPageAnswer(BaseEvent):

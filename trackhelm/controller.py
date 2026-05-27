@@ -12,6 +12,7 @@ from .chat import ChatRouterHandler
 from .config import TrackHelmConfig
 from .database import DatabaseManager
 from .eventbus.bus import EventBus
+from .eventbus.events import ControllerTick
 from .gbx.client import GbxClient
 from .logging import setup_logging
 from .plugin.base import Plugin
@@ -38,6 +39,7 @@ class Controller:
 
         self._registry = PluginRegistry()
         self._listen_task: asyncio.Task[None] | None = None
+        self._tick_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         """Start core services and schedule the GBX listen loop."""
@@ -51,12 +53,15 @@ class Controller:
             self._registry.register(plugin)
 
         self._listen_task = asyncio.create_task(self.gbx.listen(self.bus), name="gbx-listen")
+        self._tick_task = asyncio.create_task(self._tick_loop(), name="controller-tick")
         logger.info("Controller started with %s plugin(s)", len(plugins))
 
     async def stop(self) -> None:
         """Tear down plugins and core services."""
 
         try:
+            await self._stop_tick_loop()
+
             for plugin in reversed(self._registry.all()):
                 await plugin.teardown()
         finally:
@@ -72,6 +77,35 @@ class Controller:
             await self.bus.shutdown()
             await self.db.dispose()
             logger.info("Controller stopped")
+
+    async def _tick_loop(self) -> None:
+        loop = asyncio.get_running_loop()
+        next_tick = loop.time() + 1.0
+
+        try:
+            while True:
+                await asyncio.sleep(max(0.0, next_tick - loop.time()))
+                await self.bus.emit(ControllerTick())
+
+                now = loop.time()
+                next_tick += 1.0
+                if next_tick <= now:
+                    next_tick = now + 1.0
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Controller tick loop failed")
+
+    async def _stop_tick_loop(self) -> None:
+        if self._tick_task is None:
+            return
+
+        self._tick_task.cancel()
+        try:
+            await self._tick_task
+        except asyncio.CancelledError:
+            pass
+        self._tick_task = None
 
     def plugin(self, name: str) -> Plugin[Any] | None:
         return self._registry.get(name)

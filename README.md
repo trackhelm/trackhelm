@@ -26,6 +26,8 @@ Key ideas
   possible, making handlers clearer and safer.
 - Chat routing: slash-prefixed chat is kept private as command events, while
   normal messages can be adjusted by plugins before public forwarding.
+- Shared heartbeat: plugins can subscribe to a controller-owned one-second tick
+  event for timer-style behavior.
 - Async-first: all I/O and plugin hooks are asyncio-compatible to avoid
   blocking the event loop.
 - Plugin-friendly: plugins are discovered and loaded via entry points and
@@ -66,6 +68,22 @@ Plugins can also participate in normal chat routing with
 `self.register_chat_router(...)`. Routers receive a mutable `ChatRoute` and may
 adjust `route.text`, change `route.destination`, or call `route.cancel()` before
 the controller forwards the message.
+
+Controller ticks
+----------------
+
+Plugins that need shared one-second timer behavior can subscribe to
+`ControllerTick`:
+
+```python
+from trackhelm.eventbus.events import ControllerTick
+
+async def setup(self) -> None:
+    self.subscribe(ControllerTick, self._handle_tick)
+```
+
+The controller emits this empty event once per second while it is running and
+skips catch-up bursts if the event loop is delayed.
 
 When to use trackhelm
 ----------------------

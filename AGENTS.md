@@ -196,6 +196,25 @@ self.subscribe(PlayerConnect, self._handle_player_connect)
 
 Use string subscriptions only when a typed event does not exist yet.
 
+## Controller Tick Event
+
+`ControllerTick` is a typed internal event with the name
+`TrackHelm.ControllerTick`. It has no fields and is emitted by the controller
+once per second while the controller is running.
+
+Plugins that need shared one-second timer behavior can subscribe to it in
+`setup()`:
+
+```python
+self.subscribe(ControllerTick, self._handle_tick)
+```
+
+The heartbeat task starts after plugin setup and GBX listener scheduling, and it
+is cancelled before plugin teardown. If the event loop is delayed, missed ticks
+are skipped rather than replayed in a burst. Plugins with custom intervals or
+plugin-private timing should still own their own `asyncio.Task` and cancel it in
+`teardown()`.
+
 ## Chat Commands And Manual Routing
 
 `ChatCommand` is a typed controller event, not a raw GBX callback. It is emitted
