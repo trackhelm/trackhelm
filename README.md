@@ -24,6 +24,10 @@ Key ideas
   in plugins.
 - Typed events: GBX callbacks are translated into typed dataclasses whenever
   possible, making handlers clearer and safer.
+- Chat routing: slash-prefixed chat is kept private as command events, while
+  normal messages can be adjusted by plugins before public forwarding.
+- Shared heartbeat: plugins can subscribe to a controller-owned one-second tick
+  event for timer-style behavior.
 - Async-first: all I/O and plugin hooks are asyncio-compatible to avoid
   blocking the event loop.
 - Plugin-friendly: plugins are discovered and loaded via entry points and
@@ -40,6 +44,46 @@ Core components
   sessions for plugins and the core.
 - `PluginRegistry` / plugin API — discovery, dependency resolution, setup and
   teardown lifecycles for plugins.
+
+Chat commands
+-------------
+
+TrackHelm enables GBX manual chat routing when run through the controller.
+Messages starting with `/` are not forwarded to public chat. Instead, they are
+emitted as typed `ChatCommand` events with the original text, a lowercased
+command name, and shell-like parsed `args`.
+
+Plugins can register command metadata for future help dialogs and subscribe to
+the command event:
+
+```python
+from trackhelm.eventbus.events import ChatCommand
+
+async def setup(self) -> None:
+    self.register_chat_command("hello", description="Send a greeting.", usage="/hello [name]")
+    self.subscribe(ChatCommand, self._handle_chat_command)
+```
+
+Plugins can also participate in normal chat routing with
+`self.register_chat_router(...)`. Routers receive a mutable `ChatRoute` and may
+adjust `route.text`, change `route.destination`, or call `route.cancel()` before
+the controller forwards the message.
+
+Controller ticks
+----------------
+
+Plugins that need shared one-second timer behavior can subscribe to
+`ControllerTick`:
+
+```python
+from trackhelm.eventbus.events import ControllerTick
+
+async def setup(self) -> None:
+    self.subscribe(ControllerTick, self._handle_tick)
+```
+
+The controller emits this empty event once per second while it is running and
+skips catch-up bursts if the event loop is delayed.
 
 When to use trackhelm
 ----------------------

@@ -157,6 +157,10 @@ Request behavior:
 Callback behavior:
 
 - Callback packets are identified by protocol handle convention.
+- `TrackMania.PlayerChat` is routed through the controller-owned chat router
+  when running through `Controller`. Manual chat routing is enabled, slash
+  commands are kept private, and normal chat is forwarded after plugin routing
+  hooks run.
 - If a callback name has a registered typed event class, the client builds that
   dataclass with `from_gbx_params()` and emits it.
 - If typed conversion fails or no event class exists, the client emits a legacy
@@ -192,6 +196,59 @@ self.subscribe(PlayerConnect, self._handle_player_connect)
 
 Use string subscriptions only when a typed event does not exist yet.
 
+## Controller Tick Event
+
+`ControllerTick` is a typed internal event with the name
+`TrackHelm.ControllerTick`. It has no fields and is emitted by the controller
+once per second while the controller is running.
+
+Plugins that need shared one-second timer behavior can subscribe to it in
+`setup()`:
+
+```python
+self.subscribe(ControllerTick, self._handle_tick)
+```
+
+The heartbeat task starts after plugin setup and GBX listener scheduling, and it
+is cancelled before plugin teardown. If the event loop is delayed, missed ticks
+are skipped rather than replayed in a burst. Plugins with custom intervals or
+plugin-private timing should still own their own `asyncio.Task` and cancel it in
+`teardown()`.
+
+## Chat Commands And Manual Routing
+
+`ChatCommand` is a typed controller event, not a raw GBX callback. It is emitted
+when a player's chat text starts with `/`. Slash commands are not forwarded to
+public chat and are not also emitted as `PlayerChat`.
+
+`ChatCommand` fields:
+
+- `player_uid`: player id from the chat callback.
+- `login`: player login.
+- `text`: original slash-prefixed message.
+- `command`: lowercased command name without `/`.
+- `args`: shell-like parsed argument list, so quoted phrases stay together.
+
+Plugins should register command metadata during `setup()` and then subscribe to
+`ChatCommand` like any other typed event:
+
+```python
+self.register_chat_command("hello", description="Send a greeting.", usage="/hello [name]")
+self.subscribe(ChatCommand, self._handle_chat_command)
+```
+
+The controller stores command metadata in `controller.chat_commands()` for
+future help dialogs. Command names and aliases are normalized to lowercase
+without a leading slash. Duplicate command names or aliases across plugins are
+startup errors.
+
+Plugins can also participate in normal-message manual routing with
+`self.register_chat_router(handler)`. Routing handlers receive a mutable
+`ChatRoute` with `player_uid`, `login`, `original_text`, mutable `text`, mutable
+`destination`, `cancelled`, and `cancel()`. Routers run in plugin setup order.
+They may adjust text, change the destination, or cancel the message before it is
+forwarded. Routing hooks apply only to normal chat, not slash commands.
+
 ## Plugin System
 
 Plugins are discovered through Python package entry points in the group
@@ -220,6 +277,8 @@ The base plugin gives handlers access to:
 - `self.gbx`
 - `self.db`
 - `self.subscribe(...)`
+- `self.register_chat_command(...)`
+- `self.register_chat_router(...)`
 
 Plugin dependency behavior:
 
