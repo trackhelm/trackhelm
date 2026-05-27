@@ -157,6 +157,26 @@ class PlayerChat(BaseEvent):
     is_registred_cmd: bool
 
 
+@register_event("TrackHelm.ChatCommand")
+@dataclass(slots=True)
+class ChatCommand(BaseEvent):
+    """Fired when a player sends a slash-prefixed chat command.
+
+    Attributes:
+        player_uid: Unique player id.
+        login: Player login/name.
+        text: Original slash-prefixed message.
+        command: Lowercase command name without the leading slash.
+        args: Shell-like parsed command arguments.
+    """
+
+    player_uid: int
+    login: str
+    text: str
+    command: str
+    args: list[str]
+
+
 @register_event("TrackMania.PlayerManialinkPageAnswer")
 @dataclass(slots=True)
 class PlayerManialinkPageAnswer(BaseEvent):

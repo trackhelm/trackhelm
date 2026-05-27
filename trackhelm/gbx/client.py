@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
+from collections.abc import Callable
 from contextlib import suppress
 import itertools
 import logging
@@ -9,6 +11,7 @@ from typing import Any
 from trackhelm.config import ServerConfig
 from trackhelm.eventbus.bus import EventBus
 from trackhelm.eventbus.events import lookup_event_class
+from trackhelm.eventbus.events import PlayerChat
 
 from .codec import XmlRpcCodec
 from .exceptions import AuthenticationError
@@ -69,11 +72,13 @@ class GbxClient(GbxMethodsMixin):
         self.max_payload_size = max_payload_size
 
         self.event_bus = event_bus
+        self.chat_router: Callable[[PlayerChat], Awaitable[None]] | None = None
 
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
 
         self._listener_task: asyncio.Task[None] | None = None
+        self._callback_tasks: set[asyncio.Task[None]] = set()
 
         self._request_id = itertools.count(1)
         self._pending: dict[int, asyncio.Future[Any]] = {}
@@ -109,6 +114,9 @@ class GbxClient(GbxMethodsMixin):
         # the XML-RPC method directly.
         await self.enable_callbacks(True)
 
+        if self.chat_router is not None:
+            await self.chat_enable_manual_routing(True, False)
+
         self._connected = True
 
         logger.info("Connected to TMNF server")
@@ -135,6 +143,13 @@ class GbxClient(GbxMethodsMixin):
 
             with suppress(asyncio.CancelledError):
                 await self._listener_task
+
+        for task in list(self._callback_tasks):
+            task.cancel()
+
+        if self._callback_tasks:
+            await asyncio.gather(*self._callback_tasks, return_exceptions=True)
+            self._callback_tasks.clear()
 
         for future in self._pending.values():
             if not future.done():
@@ -256,10 +271,14 @@ class GbxClient(GbxMethodsMixin):
             if event_cls is not None:
                 try:
                     event_instance = event_cls.from_gbx_params(data)
-                    await self.event_bus.emit(event_instance)
-                    return
                 except Exception:
                     logger.exception("Failed to construct typed event for %s", method)
+                else:
+                    if isinstance(event_instance, PlayerChat) and self.chat_router is not None:
+                        self._schedule_chat_route(event_instance, method)
+                        return
+                    await self.event_bus.emit(event_instance)
+                    return
 
             # Fallback to legacy payload emission
             await self.event_bus.emit(method, params=data)
@@ -273,3 +292,22 @@ class GbxClient(GbxMethodsMixin):
 
         if pending and not pending.done():
             pending.set_result(data)
+
+    def _schedule_chat_route(self, event: PlayerChat, method: str) -> None:
+        task = asyncio.create_task(
+            self._route_chat_callback(event, method),
+            name=f"gbx-chat-route-{event.login}",
+        )
+        self._callback_tasks.add(task)
+        task.add_done_callback(self._callback_tasks.discard)
+
+    async def _route_chat_callback(self, event: PlayerChat, method: str) -> None:
+        if self.chat_router is None:
+            return
+
+        try:
+            await self.chat_router(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Failed to route manual chat for %s", method)

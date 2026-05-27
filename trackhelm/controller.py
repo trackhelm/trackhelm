@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 import logging
 from pathlib import Path
 from typing import Any
 
+from .chat import ChatCommandRegistration
+from .chat import ChatRouter
+from .chat import ChatRouterHandler
 from .config import TrackHelmConfig
 from .database import DatabaseManager
 from .eventbus.bus import EventBus
@@ -26,6 +30,8 @@ class Controller:
         self.bus: EventBus = EventBus()
         self.db: DatabaseManager = DatabaseManager(config.database.url)
         self.gbx: GbxClient = GbxClient(config.server, event_bus=self.bus)
+        self.chat: ChatRouter = ChatRouter(self.bus, self.gbx.chat_forward_to_login)
+        self.gbx.chat_router = self.chat.route_player_chat
 
         # Backwards-compatible alias used by older code.
         self.event_bus = self.bus
@@ -69,6 +75,29 @@ class Controller:
 
     def plugin(self, name: str) -> Plugin[Any] | None:
         return self._registry.get(name)
+
+    def register_chat_command(
+        self,
+        plugin_name: str,
+        name: str,
+        *,
+        description: str = "",
+        usage: str | None = None,
+        aliases: Iterable[str] = (),
+    ) -> ChatCommandRegistration:
+        return self.chat.register_command(
+            plugin_name,
+            name,
+            description=description,
+            usage=usage,
+            aliases=aliases,
+        )
+
+    def chat_commands(self) -> list[ChatCommandRegistration]:
+        return self.chat.commands()
+
+    def register_chat_router(self, plugin_name: str, handler: ChatRouterHandler) -> None:
+        self.chat.register_route_handler(plugin_name, handler)
 
     @classmethod
     def run(cls, config_path: str = "trackhelm.toml") -> None:
