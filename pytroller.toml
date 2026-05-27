@@ -1,0 +1,26 @@
+[server]
+# Host and port of the TrackMania server
+host = "127.0.0.1"
+port = 5000
+
+# Login credentials for an admin account with callback permissions
+login = "SuperAdmin"
+password = "SuperAdmin"
+
+[database]
+# SQLAlchemy async URL. Example uses a local SQLite file via aiosqlite.
+url = "sqlite+aiosqlite:///./pytroller.db"
+
+[logging]
+level = "INFO"
+dir = "logs"
+max_bytes = 5242880 # 5 MB
+backup_count = 3
+
+[plugins]
+# List of enabled plugin keys
+enabled = []
+
+# Example inline plugin config (optional)
+# [plugins.some_plugin]
+# option = "value"

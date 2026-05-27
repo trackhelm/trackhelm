@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=80.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytroller"
+version = "0.0.1"
+description = ""
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "malun22" }]
+keywords = []
+dependencies = [
+    "pydantic",
+    "sqlalchemy[asyncio]",
+    "alembic",
+    "tomli-w",
+    "aiosqlite",
+    "asyncpg",
+]
+
+[project.optional-dependencies]
+dev = ["bump-my-version", "build", "pre-commit", "mypy", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/pytroller/pytroller"
+Repository = "https://github.com/pytroller/pytroller"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pytroller*"]
+
+[tool.setuptools.package-data]
+pytroller = ["py.typed"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["optuna", "tests", "docs"]
+lines-after-imports = 2
+force-single-line = true
+force-sort-within-sections = true
+order-by-type = false
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+warn_unused_ignores = false
