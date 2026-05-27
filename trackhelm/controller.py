@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .config import PysecoConfig
+from .config import TrackHelmConfig
 from .database import DatabaseManager
 from .database import models as _database_models  # noqa: F401
 from .eventbus.bus import EventBus
@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class Controller:
     """Application controller coordinating core services and plugins."""
 
-    def __init__(self, config: PysecoConfig) -> None:
-        self.config: PysecoConfig = config
+    def __init__(self, config: TrackHelmConfig) -> None:
+        self.config: TrackHelmConfig = config
         self.bus: EventBus = EventBus()
         self.db: DatabaseManager = DatabaseManager(config.database.url)
         self.gbx: GbxClient = GbxClient(config.server, event_bus=self.bus)
@@ -72,10 +72,16 @@ class Controller:
         return self._registry.get(name)
 
     @classmethod
-    def run(cls, config_path: str = "pytroller.toml") -> None:
-        config = PysecoConfig.from_file(Path(config_path))
+    def run(cls, config_path: str = "trackhelm.toml") -> None:
+        config = TrackHelmConfig.from_file(Path(config_path))
 
-        level = logging.getLevelNamesMapping().get(config.logging.level.upper(), logging.INFO)
+        level_name = config.logging.level.upper()
+        # Use getLevelNamesMapping() when available (Python 3.11+),
+        # otherwise fall back to the internal mapping for older Pythons.
+        if hasattr(logging, "getLevelNamesMapping"):
+            level = logging.getLevelNamesMapping().get(level_name, logging.INFO)
+        else:
+            level = logging._nameToLevel.get(level_name, logging.INFO)
 
         setup_logging(
             Path(config.logging.dir),

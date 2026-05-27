@@ -11,7 +11,7 @@ def setup_logging(log_dir: Path, max_bytes: int, backup_count: int, level: int) 
     """Configure root logging with a stream handler and a rotating file handler.
 
     The function ensures `log_dir` exists, attaches a `StreamHandler` writing to
-    stdout and a `RotatingFileHandler` writing to ``log_dir/pytroller.log`` with the
+    stdout and a `RotatingFileHandler` writing to ``log_dir/trackhelm.log`` with the
     provided rotation parameters. Both handlers share the same formatter.
 
     Args:
@@ -38,7 +38,7 @@ def setup_logging(log_dir: Path, max_bytes: int, backup_count: int, level: int) 
     root.addHandler(sh)
 
     # Rotating file handler
-    logfile = log_dir / "pytroller.log"
+    logfile = log_dir / "trackhelm.log"
     fh = logging.handlers.RotatingFileHandler(
         filename=str(logfile),
         maxBytes=max_bytes,

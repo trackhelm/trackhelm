@@ -1,4 +1,4 @@
-from pytroller.controller import Controller
+from trackhelm.controller import Controller
 
 
 if __name__ == "__main__":

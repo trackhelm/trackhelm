@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-`pytroller` is an asyncio-based Python controller for a TrackMania dedicated
+`trackhelm` is an asyncio-based Python controller for a TrackMania dedicated
 server that speaks the GBXRemote XML-RPC protocol. Its job is to run beside a
 game server, authenticate with an admin account, enable server callbacks, expose
 typed helpers for XML-RPC methods, and give plugins a clean way to react to
@@ -23,16 +23,16 @@ then put server-specific features into plugins.
 
 ## How The Application Starts
 
-The entry points are `example.py` and `python -m pytroller`. Both call
-`Controller.run()` from `pytroller/controller.py`.
+The entry points are `example.py` and `python -m trackhelm`. Both call
+`Controller.run()` from `trackhelm/controller.py`.
 
 Startup flow:
 
-1. `Controller.run()` loads `pytroller.toml` through
-   `PysecoConfig.from_file()`. The config class still has the legacy name
-   `PysecoConfig`, but it is the top-level pytroller config model.
-2. Logging is configured by `pytroller/logging.py` with stdout logging and a
-   rotating file handler at `logs/pytroller.log`.
+1. `Controller.run()` loads `trackhelm.toml` through
+  `TrackHelmConfig.from_file()`. The config class has been renamed to
+  `TrackHelmConfig`, which is the top-level trackhelm config model.
+2. Logging is configured by `trackhelm/logging.py` with stdout logging and a
+  rotating file handler at `logs/trackhelm.log`.
 3. `Controller` creates the core services:
    - `EventBus`
    - `DatabaseManager`
@@ -54,19 +54,19 @@ process is interrupted or cancelled.
 
 ## Configuration
 
-The default config file is `pytroller.toml`.
+The default config file is `trackhelm.toml`.
 
 Important sections:
 
 - `[server]`: GBXRemote host, port, admin login, and password.
 - `[database]`: SQLAlchemy async database URL, for example
-  `sqlite+aiosqlite:///./pytroller.db`.
+  `sqlite+aiosqlite:///./trackhelm.db`.
 - `[logging]`: log level, log directory, rotation size, and backup count.
 - `[plugins]`: list of enabled plugin keys.
 
 Plugin config can be supplied in two places:
 
-- Inline as `[plugins.<key>]` in `pytroller.toml`.
+- Inline as `[plugins.<key>]` in `trackhelm.toml`.
 - As `plugins/<key>.toml`.
 
 File-based plugin config wins over inline config. The loader also tries to sync
@@ -79,26 +79,26 @@ contents are versioned unless `git ls-files` says they are.
 
 ## Core Module Map
 
-`pytroller/controller.py`
+`trackhelm/controller.py`
 
 - Coordinates the whole application.
 - Owns the event bus, database manager, GBX client, and active plugin registry.
 - Exposes `controller.plugin(name)` to retrieve an active plugin.
 
-`pytroller/config.py`
+`trackhelm/config.py`
 
 - Defines Pydantic config models for server, database, logging, and plugins.
 - Loads TOML with `tomli`.
 - Stores raw plugin config dictionaries privately and exposes them through
   `plugin_config(key)`.
 
-`pytroller/logging.py`
+`trackhelm/logging.py`
 
 - Sets the root logger level.
 - Clears existing handlers.
 - Adds stdout and rotating file handlers with a shared formatter.
 
-`pytroller/gbx/`
+`trackhelm/gbx/`
 
 - Implements the GBXRemote protocol client.
 - `protocol.py` packs and unpacks GBXRemote headers.
@@ -110,7 +110,7 @@ contents are versioned unless `git ls-files` says they are.
   typed Python objects.
 - `exceptions.py` defines GBX-specific error types.
 
-`pytroller/eventbus/`
+`trackhelm/eventbus/`
 
 - Provides an asyncio queue with worker tasks.
 - Supports both legacy string-named events and typed event dataclasses.
@@ -118,7 +118,7 @@ contents are versioned unless `git ls-files` says they are.
   `@register_event("TrackMania.SomeCallback")`.
 - Handlers may be synchronous or async; async results are awaited with a timeout.
 
-`pytroller/database/`
+`trackhelm/database/`
 
 - Provides a shared SQLAlchemy async declarative base.
 - `DatabaseManager.initialize()` creates all tables registered on
@@ -126,9 +126,9 @@ contents are versioned unless `git ls-files` says they are.
 - `DatabaseManager.session()` yields an `AsyncSession` inside a transaction,
   committing on normal exit and rolling back on exception.
 - The core currently defines a `users` table in
-  `pytroller/database/models/user.py`.
+  `trackhelm/database/models/user.py`.
 
-`pytroller/plugin/`
+`trackhelm/plugin/`
 
 - Defines the plugin API, plugin config base class, entry point discovery,
   dependency resolution, plugin registry, and optional Alembic migration helper.
@@ -168,7 +168,7 @@ unmodeled or experimental XML-RPC methods.
 
 ## Event Model
 
-Typed events inherit from `BaseEvent` in `pytroller/eventbus/events.py`.
+Typed events inherit from `BaseEvent` in `trackhelm/eventbus/events.py`.
 
 To add a new typed callback:
 
@@ -182,7 +182,7 @@ class CallbackName(BaseEvent):
 
 `BaseEvent.from_gbx_params()` maps positional GBX callback parameters to
 dataclass fields in annotation order. It can also convert dicts into model
-dataclasses when annotations refer to classes from `pytroller.gbx.models`.
+dataclasses when annotations refer to classes from `trackhelm.gbx.models`.
 
 Plugins should prefer typed subscriptions:
 
@@ -195,13 +195,13 @@ Use string subscriptions only when a typed event does not exist yet.
 ## Plugin System
 
 Plugins are discovered through Python package entry points in the group
-`pytroller.plugins`.
+`trackhelm.plugins`.
 
 Plugin packages should expose entries like:
 
 ```toml
-[project.entry-points."pytroller.plugins"]
-welcome = "pytroller_welcome.plugin:WelcomePlugin"
+[project.entry-points."trackhelm.plugins"]
+welcome = "trackhelm_welcome.plugin:WelcomePlugin"
 ```
 
 A plugin class should:
@@ -223,9 +223,9 @@ The base plugin gives handlers access to:
 
 Plugin dependency behavior:
 
-- Enabled plugin keys come from `pytroller.toml`.
+- Enabled plugin keys come from `trackhelm.toml`.
 - Required plugin dependencies are auto-activated.
-- Missing plugins raise an install hint like `pip install pytroller-<key>`.
+- Missing plugins raise an install hint like `pip install trackhelm-<key>`.
 - Dependency cycles raise `PluginCycleError`.
 - Setup order is topological.
 - Teardown order is reverse registry order.
@@ -248,29 +248,29 @@ Keep shared user identity in the core `users` table. Store plugin-specific
 state in plugin-owned tables rather than adding unrelated columns to core
 models.
 
-When adding models:
+- When adding models:
 
-- Inherit from `pytroller.database.base.Base`.
+- Inherit from `trackhelm.database.base.Base`.
 - Add imports in an appropriate `models/__init__.py` so metadata registration
   happens before table creation.
 - Use SQLAlchemy async APIs from application code.
 
 ## Development Workflow
 
-The package targets Python 3.10+ and is typed via `pytroller/py.typed`.
+The package targets Python 3.10+ and is typed via `trackhelm/py.typed`.
 
 Useful commands:
 
 ```powershell
-.\venv\Scripts\python.exe -m pytroller
-.\venv\Scripts\python.exe -m compileall pytroller
+.\venv\Scripts\python.exe -m trackhelm
+.\venv\Scripts\python.exe -m compileall trackhelm
 .\venv\Scripts\ruff.exe check .
 .\venv\Scripts\ruff.exe format .
-.\venv\Scripts\mypy.exe pytroller
+.\venv\Scripts\mypy.exe trackhelm
 ```
 
 Running the application requires a reachable TrackMania dedicated server with
-GBXRemote enabled and credentials matching `pytroller.toml`.
+GBXRemote enabled and credentials matching `trackhelm.toml`.
 
 The pre-commit configuration runs Ruff check with fixes, Ruff format, and mypy.
 There is no test suite in this checkout yet, so use compile, lint, type checks,
@@ -296,5 +296,4 @@ and focused manual or integration checks when changing behavior.
 
 ## Current Repository Notes
 
-- The config class name `PysecoConfig` appears to be legacy naming. Do not
-  rename it casually because it is exported from `pytroller.__init__`.
+-- The config class name `TrackHelmConfig` replaces the previous `PysecoConfig` name.

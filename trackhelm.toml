@@ -9,7 +9,7 @@ password = "SuperAdmin"
 
 [database]
 # SQLAlchemy async URL. Example uses a local SQLite file via aiosqlite.
-url = "sqlite+aiosqlite:///./pytroller.db"
+url = "sqlite+aiosqlite:///./trackhelm.db"
 
 [logging]
 level = "INFO"

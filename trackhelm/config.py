@@ -44,7 +44,7 @@ class PluginsConfig(BaseModel):
     enabled: list[str] = Field(default_factory=list)
 
 
-class PysecoConfig(BaseModel):
+class TrackHelmConfig(BaseModel):
     """Top-level application configuration.
 
     This mirrors the requirements used by the controller and plugin
@@ -67,8 +67,8 @@ class PysecoConfig(BaseModel):
 
     @classmethod
     def from_file(
-        cls, path: Path = Path("pytroller.toml"), plugins_dir: Path = Path("plugins")
-    ) -> "PysecoConfig":
+        cls, path: Path = Path("trackhelm.toml"), plugins_dir: Path = Path("plugins")
+    ) -> "TrackHelmConfig":
         """Load configuration from a TOML file and discover plugin files.
 
         The method looks for an inline [plugins.<key>] block and for

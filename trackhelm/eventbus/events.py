@@ -13,7 +13,7 @@ from typing import TypeVar
 
 
 if TYPE_CHECKING:
-    from pytroller.gbx import models as gbx_models
+    from trackhelm.gbx import models as gbx_models
 
 
 @dataclass(slots=True)
@@ -52,7 +52,7 @@ class BaseEvent:
         def resolve_model_by_name(name: str) -> Any:
             nonlocal gbx_models
             if gbx_models is None:
-                from pytroller.gbx import models as gbx_models_local
+                from trackhelm.gbx import models as gbx_models_local
 
                 gbx_models = gbx_models_local
 

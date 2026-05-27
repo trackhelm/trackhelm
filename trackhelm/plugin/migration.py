@@ -10,7 +10,7 @@ from sqlalchemy.engine import Connection
 
 
 if TYPE_CHECKING:
-    from pytroller.controller import Controller
+    from trackhelm.controller import Controller
 
 
 def _resolve_migrations_path(package: str) -> Path:

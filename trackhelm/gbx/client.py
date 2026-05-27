@@ -6,9 +6,9 @@ import itertools
 import logging
 from typing import Any
 
-from pytroller.config import ServerConfig
-from pytroller.eventbus.bus import EventBus
-from pytroller.eventbus.events import lookup_event_class
+from trackhelm.config import ServerConfig
+from trackhelm.eventbus.bus import EventBus
+from trackhelm.eventbus.events import lookup_event_class
 
 from .codec import XmlRpcCodec
 from .exceptions import AuthenticationError

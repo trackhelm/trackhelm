@@ -16,7 +16,7 @@ from .config import PluginConfig
 
 logger = logging.getLogger(__name__)
 
-ENTRY_POINT_GROUP = "pytroller.plugins"
+ENTRY_POINT_GROUP = "trackhelm.plugins"
 
 
 class PluginNotInstalledError(RuntimeError):
@@ -52,7 +52,7 @@ def discover_plugins() -> dict[str, type[Plugin[Any]]]:
 
 
 def _missing_plugin_error(key: str) -> PluginNotInstalledError:
-    package_name = f"pytroller-{key.replace('_', '-')}"
+    package_name = f"trackhelm-{key.replace('_', '-')}"
     return PluginNotInstalledError(
         f"Plugin '{key}' is not installed. Install it with: pip install {package_name}"
     )

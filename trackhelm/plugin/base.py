@@ -9,15 +9,15 @@ from typing import Generic
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
-from pytroller.database.manager import DatabaseManager
-from pytroller.eventbus.events import BaseEvent
-from pytroller.gbx.client import GbxClient
+from trackhelm.database.manager import DatabaseManager
+from trackhelm.eventbus.events import BaseEvent
+from trackhelm.gbx.client import GbxClient
 
 from .config import PluginConfig
 
 
 if TYPE_CHECKING:
-    from pytroller.controller import Controller
+    from trackhelm.controller import Controller
 
 
 ConfigT = TypeVar("ConfigT", bound=PluginConfig)
@@ -26,7 +26,7 @@ AsyncHandler = Callable[[EventT], Awaitable[None] | None]
 
 
 class Plugin(ABC, Generic[ConfigT]):
-    """Base class for all pytroller plugins."""
+    """Base class for all TrackHelm plugins."""
 
     required_plugins: ClassVar[list[str]] = []
     optional_plugins: ClassVar[list[str]] = []
