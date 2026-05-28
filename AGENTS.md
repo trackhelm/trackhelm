@@ -114,9 +114,28 @@ contents are versioned unless `git ls-files` says they are.
 
 - Provides an asyncio queue with worker tasks.
 - Supports both legacy string-named events and typed event dataclasses.
+- Owns backpressure policy: queues are bounded, normal-priority events use
+  drop-newest under overload, and core lifecycle/fault events get priority.
+- Tracks event metrics for emitted, dispatched, dropped, slow, timed-out, and
+  failed handlers.
 - `events.py` registers typed TrackMania callback events with
   `@register_event("TrackMania.SomeCallback")`.
 - Handlers may be synchronous or async; async results are awaited with a timeout.
+- Slow handlers produce warnings before they become hard timeouts.
+
+`trackhelm/tasks.py`
+
+- Provides `TaskSupervisor`, the standard way to own controller and plugin
+  background tasks.
+- Controller tasks and plugin tasks should be registered through supervisor
+  helpers so crashes are reported and shutdown can cancel work consistently.
+
+`trackhelm/lifecycle.py`
+
+- Defines controller state, plugin lifecycle status, health snapshot models,
+  reload results, capability checks, and diagnostics records.
+- Health snapshots are in-process diagnostics for future commands, dashboards,
+  or operator tooling.
 
 `trackhelm/database/`
 
@@ -279,6 +298,7 @@ The base plugin gives handlers access to:
 - `self.subscribe(...)`
 - `self.register_chat_command(...)`
 - `self.register_chat_router(...)`
+- `self.create_task(...)`
 
 Plugin dependency behavior:
 
@@ -297,6 +317,38 @@ For database-using plugins, import models before `DatabaseManager.initialize()`
 needs them. Plugins that need schema migrations can use `PluginMigration`, which
 runs Alembic migrations against the shared async engine with a plugin-specific
 version table.
+
+Plugins should use TrackHelm helper APIs for event subscriptions, chat command
+registration, chat routing, and background tasks. Helper-owned side effects are
+tracked so startup rollback, plugin disablement, and teardown can clean them up.
+Direct low-level registrations or unmanaged `asyncio.create_task()` calls are
+plugin-owned and must be cleaned up by that plugin.
+
+Repeated plugin handler failures, handler timeouts, or supervised task crashes
+are contained by disabling the faulty plugin. Disablement is logged, reflected
+in health snapshots, and cascades to plugins that require the disabled plugin.
+
+## Config Reload And Operations
+
+`Controller.reload_config()` is the core-owned reload path. It reloads
+`trackhelm.toml`, validates plugin dependency changes, applies safe settings,
+and reports settings that require restart.
+
+Reloadable settings include:
+
+- Root log level.
+- Event bus handler timeout, slow-handler threshold, high-priority timeout, and
+  overload policy.
+- Reconnect timing.
+- Plugin enablement changes when the resulting dependency graph is valid.
+
+Pending-restart settings include GBX connection details, database URL, logging
+rotation fields, and event bus capacity/worker changes.
+
+Startup validates basic GBX capabilities after authentication, including server
+version, system info, status, callbacks, and manual chat routing when enabled.
+Capability failures and warnings should be visible through logs, recent errors,
+and health snapshots.
 
 ## Database Conventions
 
@@ -345,6 +397,10 @@ and focused manual or integration checks when changing behavior.
 - Prefer typed events and typed GBX models when the shape is known.
 - Preserve the legacy raw event path so unmodeled callbacks still work.
 - Keep plugin setup and teardown idempotent where possible.
+- Define overload and fault behavior explicitly; do not add unbounded queues,
+  silent background task failures, or plugin crash loops.
+- Use `TaskSupervisor`/`Plugin.create_task()` for background work instead of raw
+  `asyncio.create_task()` unless there is a deliberate reason.
 - Avoid importing plugin packages in core code except through entry points.
 - Treat plugin configuration as user-owned data. Merge defaults without
   overwriting explicit settings.

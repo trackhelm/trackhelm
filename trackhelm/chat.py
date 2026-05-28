@@ -128,6 +128,26 @@ class ChatRouter:
     def register_route_handler(self, plugin: str, handler: ChatRouterHandler) -> None:
         self._route_handlers.append((plugin, handler))
 
+    def unregister_plugin(self, plugin: str) -> None:
+        """Remove chat commands and route handlers owned by a plugin."""
+
+        registrations = [
+            registration for registration in self._registrations if registration.plugin == plugin
+        ]
+        self._registrations = [
+            registration for registration in self._registrations if registration.plugin != plugin
+        ]
+
+        for registration in registrations:
+            for command_key in (registration.name, *registration.aliases):
+                existing = self._commands.get(command_key)
+                if existing == registration:
+                    self._commands.pop(command_key, None)
+
+        self._route_handlers = [
+            (owner, handler) for owner, handler in self._route_handlers if owner != plugin
+        ]
+
     async def route_player_chat(self, event: PlayerChat) -> None:
         if event.text.startswith("/"):
             await self._event_bus.emit(self._build_command_event(event))

@@ -1,4 +1,5 @@
 from .bus import EventBus
+from .events import ControllerStateChanged
 
 
-__all__ = ["EventBus"]
+__all__ = ["ControllerStateChanged", "EventBus"]

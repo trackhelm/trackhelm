@@ -32,6 +32,10 @@ Key ideas
   normal messages can be adjusted by plugins before public forwarding.
 - Shared heartbeat: plugins can subscribe to a controller-owned one-second tick
   event for timer-style behavior.
+- Backpressure and fault isolation: the event bus has bounded queues, metrics,
+  slow-handler warnings, and plugin-owned faults can disable only the bad plugin.
+- Operations hooks: core health includes event, plugin, task, capability, and
+  reload diagnostics for future commands or dashboards.
 - Async-first: all I/O and plugin hooks are asyncio-compatible to avoid
   blocking the event loop.
 - Plugin-friendly: plugins are discovered and loaded via entry points and
@@ -48,6 +52,8 @@ Core components
   sessions for plugins and the core.
 - `PluginRegistry` / plugin API — discovery, dependency resolution, setup and
   teardown lifecycles for plugins.
+- `TaskSupervisor` — shared task ownership, crash reporting, and cancellation
+  for controller and plugin background work.
 
 Reconnect supervision
 ---------------------
@@ -110,6 +116,49 @@ async def setup(self) -> None:
 
 The controller emits this empty event once per second while it is running and
 skips catch-up bursts if the event loop is delayed.
+
+Lifecycle and health
+--------------------
+
+Plugins can inspect `controller.state`, `controller.ready`, and
+`await controller.health()` to understand startup, degraded reconnect, and
+shutdown state. Lifecycle changes are also emitted as the typed
+`ControllerStateChanged` event so plugins can react without polling.
+
+If plugin setup fails partway through startup, TrackHelm records the failing
+plugin, tears down already-ready plugins, removes helper-registered event/chat
+side effects, and shuts core services down cleanly.
+
+Reliability and operations
+--------------------------
+
+The event bus uses a bounded queue. Normal-priority events are dropped with
+metrics when the queue is full (`drop_newest`), while core lifecycle and fault
+events get a short protected enqueue window. Handler timeouts, slow handlers,
+handler failures, event drops, and dispatch counts are available through
+`await controller.health()`.
+
+Plugin faults are isolated by owner. Event subscriptions made through
+`self.subscribe(...)` and background tasks created with `self.create_task(...)`
+are attributed to the plugin. Repeated handler or task failures disable the
+plugin, log an operator-facing error, remove helper-registered side effects,
+cancel plugin-owned tasks, and keep the controller plus other plugins running.
+
+Plugins should use supervised tasks for background work:
+
+```python
+self.create_task(self._poll_loop(), name="poll-loop")
+```
+
+TrackHelm supports explicit in-process config reload with
+`await controller.reload_config()`. The reload path can apply log level, event
+bus timing/overload settings, reconnect timing, and plugin enablement changes.
+GBX connection settings, database URL, logging rotation, and event bus capacity
+changes are reported as pending restart.
+
+At startup, TrackHelm performs basic GBX capability checks such as version,
+system information, status, callback setup, and manual chat routing support when
+chat routing is enabled. Capability results are included in the health snapshot.
 
 When to use trackhelm
 ----------------------

@@ -11,6 +11,8 @@ from typing import Type
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
+from trackhelm.lifecycle import ControllerState
+
 
 if TYPE_CHECKING:
     from trackhelm.gbx import models as gbx_models
@@ -181,6 +183,16 @@ class ChatCommand(BaseEvent):
 @dataclass(slots=True)
 class ControllerTick(BaseEvent):
     """Fired once per second while the controller is running."""
+
+
+@register_event("TrackHelm.ControllerStateChanged")
+@dataclass(slots=True)
+class ControllerStateChanged(BaseEvent):
+    """Fired when the controller moves between lifecycle states."""
+
+    previous: ControllerState
+    current: ControllerState
+    reason: str
 
 
 @register_event("TrackMania.PlayerManialinkPageAnswer")

@@ -17,5 +17,8 @@ class PluginRegistry:
     def get(self, name: str) -> Plugin[Any] | None:
         return self._plugins.get(name)
 
+    def remove(self, name: str) -> Plugin[Any] | None:
+        return self._plugins.pop(name, None)
+
     def all(self) -> list[Plugin[Any]]:
         return list(self._plugins.values())
