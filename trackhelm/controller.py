@@ -14,6 +14,7 @@ from .database import DatabaseManager
 from .eventbus.bus import EventBus
 from .eventbus.events import ControllerTick
 from .gbx.client import GbxClient
+from .gbx.exceptions import AuthenticationError
 from .logging import setup_logging
 from .plugin.base import Plugin
 from .plugin.loader import load_enabled_plugins
@@ -38,13 +39,14 @@ class Controller:
         self.event_bus = self.bus
 
         self._registry = PluginRegistry()
-        self._listen_task: asyncio.Task[None] | None = None
+        self._gbx_task: asyncio.Task[None] | None = None
         self._tick_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
-        """Start core services and schedule the GBX listen loop."""
+        """Start core services and schedule GBX supervision."""
 
-        await self.gbx.connect()
+        await self.bus.start()
+        await self._connect_gbx_for_startup()
         plugins = await load_enabled_plugins(self)
         await self.db.initialize()
 
@@ -52,7 +54,10 @@ class Controller:
             await plugin.setup()
             self._registry.register(plugin)
 
-        self._listen_task = asyncio.create_task(self.gbx.listen(self.bus), name="gbx-listen")
+        self._gbx_task = asyncio.create_task(
+            self._gbx_supervision_loop(),
+            name="gbx-supervisor",
+        )
         self._tick_task = asyncio.create_task(self._tick_loop(), name="controller-tick")
         logger.info("Controller started with %s plugin(s)", len(plugins))
 
@@ -61,22 +66,87 @@ class Controller:
 
         try:
             await self._stop_tick_loop()
+            await self._stop_gbx_supervision()
 
             for plugin in reversed(self._registry.all()):
                 await plugin.teardown()
         finally:
-            if self._listen_task is not None:
-                self._listen_task.cancel()
-                try:
-                    await self._listen_task
-                except asyncio.CancelledError:
-                    pass
-                self._listen_task = None
-
             await self.gbx.disconnect()
             await self.bus.shutdown()
             await self.db.dispose()
             logger.info("Controller stopped")
+
+    async def _connect_gbx_for_startup(self) -> None:
+        reconnect = self.config.reconnect
+        delay = reconnect.initial_delay_seconds
+
+        while True:
+            try:
+                await self.gbx.connect()
+                return
+            except AuthenticationError:
+                raise
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                if not reconnect.enabled:
+                    raise
+
+                logger.exception(
+                    "Initial GBX connection failed; retrying in %.1f second(s)",
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
+
+    async def _gbx_supervision_loop(self) -> None:
+        reconnect = self.config.reconnect
+        delay = reconnect.initial_delay_seconds
+
+        while True:
+            try:
+                await self.gbx.listen(self.bus)
+                raise ConnectionError("GBX listener ended")
+            except asyncio.CancelledError:
+                raise
+            except AuthenticationError:
+                logger.exception("GBX authentication failed; reconnect supervision stopped")
+                raise
+            except Exception:
+                logger.exception("GBX session ended unexpectedly")
+                await self.gbx.disconnect()
+
+                if not reconnect.enabled:
+                    logger.error("GBX reconnect is disabled; supervision stopped")
+                    return
+
+                logger.info("Reconnecting to GBX in %.1f second(s)", delay)
+                await asyncio.sleep(delay)
+
+                try:
+                    await self.gbx.connect()
+                except AuthenticationError:
+                    logger.exception("GBX authentication failed; reconnect supervision stopped")
+                    raise
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception("GBX reconnect attempt failed")
+                    delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
+                    continue
+
+                delay = reconnect.initial_delay_seconds
+
+    async def _stop_gbx_supervision(self) -> None:
+        if self._gbx_task is None:
+            return
+
+        self._gbx_task.cancel()
+        try:
+            await self._gbx_task
+        except asyncio.CancelledError:
+            pass
+        self._gbx_task = None
 
     async def _tick_loop(self) -> None:
         loop = asyncio.get_running_loop()

@@ -38,6 +38,15 @@ class LoggingConfig(BaseModel):
     backup_count: int = 3
 
 
+class ReconnectConfig(BaseModel):
+    """GBX reconnect supervision configuration."""
+
+    enabled: bool = True
+    initial_delay_seconds: float = Field(default=1.0, ge=0.0)
+    max_delay_seconds: float = Field(default=30.0, ge=0.0)
+    multiplier: float = Field(default=2.0, ge=1.0)
+
+
 class PluginsConfig(BaseModel):
     """Plugins section configuration."""
 
@@ -55,6 +64,7 @@ class TrackHelmConfig(BaseModel):
     server: ServerConfig
     database: DatabaseConfig
     logging: LoggingConfig = LoggingConfig()
+    reconnect: ReconnectConfig = ReconnectConfig()
     plugins: PluginsConfig
 
     # Stores raw plugin config dicts keyed by plugin name.
@@ -81,12 +91,16 @@ class TrackHelmConfig(BaseModel):
         server_data = raw.get("server", {})
         database_data = raw.get("database", {})
         logging_data = raw.get("logging", {})
+        reconnect_data = raw.get("reconnect", {})
         plugins_data = raw.get("plugins", {})
 
         cfg = cls(
             server=ServerConfig(**server_data),
             database=DatabaseConfig(**database_data),
             logging=LoggingConfig(**logging_data),
+            reconnect=ReconnectConfig(
+                **(reconnect_data if isinstance(reconnect_data, dict) else {})
+            ),
             plugins=PluginsConfig(**(plugins_data if isinstance(plugins_data, dict) else {})),
         )
 

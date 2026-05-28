@@ -17,6 +17,13 @@ dir = "logs"
 max_bytes = 5242880 # 5 MB
 backup_count = 3
 
+[reconnect]
+# Retry GBXRemote sessions after the dedicated server restarts or drops the socket.
+enabled = true
+initial_delay_seconds = 1.0
+max_delay_seconds = 30.0
+multiplier = 2.0
+
 [plugins]
 # List of enabled plugin keys
 enabled = []
