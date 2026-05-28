@@ -48,6 +48,23 @@ class ReconnectConfig(BaseModel):
     max_retry_time_seconds: float = Field(default=300.0, ge=0.0)
 
 
+class EventBusConfig(BaseModel):
+    """Event dispatch and overload configuration."""
+
+    queue_size: int = Field(default=1000, ge=1)
+    workers: int = Field(default=4, ge=1)
+    handler_timeout_seconds: float = Field(default=10.0, ge=0.1)
+    slow_handler_warning_seconds: float = Field(default=1.0, ge=0.0)
+    high_priority_timeout_seconds: float = Field(default=1.0, ge=0.0)
+    overload_policy: str = "drop_newest"
+
+
+class PluginFaultConfig(BaseModel):
+    """Plugin fault isolation configuration."""
+
+    max_failures: int = Field(default=3, ge=1)
+
+
 class PluginsConfig(BaseModel):
     """Plugins section configuration."""
 
@@ -66,6 +83,8 @@ class TrackHelmConfig(BaseModel):
     database: DatabaseConfig
     logging: LoggingConfig = LoggingConfig()
     reconnect: ReconnectConfig = ReconnectConfig()
+    event_bus: EventBusConfig = EventBusConfig()
+    plugin_faults: PluginFaultConfig = PluginFaultConfig()
     plugins: PluginsConfig
 
     # Stores raw plugin config dicts keyed by plugin name.
@@ -93,6 +112,8 @@ class TrackHelmConfig(BaseModel):
         database_data = raw.get("database", {})
         logging_data = raw.get("logging", {})
         reconnect_data = raw.get("reconnect", {})
+        event_bus_data = raw.get("event_bus", {})
+        plugin_faults_data = raw.get("plugin_faults", {})
         plugins_data = raw.get("plugins", {})
 
         cfg = cls(
@@ -101,6 +122,12 @@ class TrackHelmConfig(BaseModel):
             logging=LoggingConfig(**logging_data),
             reconnect=ReconnectConfig(
                 **(reconnect_data if isinstance(reconnect_data, dict) else {})
+            ),
+            event_bus=EventBusConfig(
+                **(event_bus_data if isinstance(event_bus_data, dict) else {})
+            ),
+            plugin_faults=PluginFaultConfig(
+                **(plugin_faults_data if isinstance(plugin_faults_data, dict) else {})
             ),
             plugins=PluginsConfig(**(plugins_data if isinstance(plugins_data, dict) else {})),
         )

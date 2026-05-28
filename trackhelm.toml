@@ -25,6 +25,19 @@ max_delay_seconds = 30.0
 multiplier = 2.0
 max_retry_time_seconds = 50.0
 
+[event_bus]
+# Bounded event dispatch. Normal-priority events are dropped when the queue is full.
+queue_size = 1000
+workers = 4
+handler_timeout_seconds = 10.0
+slow_handler_warning_seconds = 1.0
+high_priority_timeout_seconds = 1.0
+overload_policy = "drop_newest"
+
+[plugin_faults]
+# Disable a plugin after this many handler/task faults.
+max_failures = 3
+
 [plugins]
 # List of enabled plugin keys
 enabled = []

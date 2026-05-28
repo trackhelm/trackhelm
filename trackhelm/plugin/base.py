@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from abc import ABC
 from abc import abstractmethod
+import asyncio
+from collections.abc import Coroutine
 from collections.abc import Iterable
 from typing import Awaitable
 from typing import Callable
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
 
 ConfigT = TypeVar("ConfigT", bound=PluginConfig)
 EventT = TypeVar("EventT", bound=BaseEvent)
+TaskResultT = TypeVar("TaskResultT")
 AsyncHandler = Callable[[EventT], Awaitable[None] | None]
 TrackedHandler = Callable[..., Awaitable[None] | None]
 
@@ -56,7 +59,7 @@ class Plugin(ABC, Generic[ConfigT]):
         return self._config
 
     def subscribe(self, event_type: type[EventT], handler: AsyncHandler[EventT]) -> None:
-        self.controller.bus.subscribe(event_type, handler)
+        self.controller.bus.subscribe(event_type, handler, owner=self.name)
         self._ensure_tracking()
         self._subscriptions.append((event_type, handler))
 
@@ -78,6 +81,14 @@ class Plugin(ABC, Generic[ConfigT]):
 
     def register_chat_router(self, handler: ChatRouterHandler) -> None:
         self.controller.register_chat_router(self.name, handler)
+
+    def create_task(
+        self,
+        coro: Coroutine[object, object, TaskResultT],
+        *,
+        name: str,
+    ) -> asyncio.Task[TaskResultT]:
+        return self.controller.create_task(coro, name=name, plugin_name=self.name)
 
     def cleanup_registered_side_effects(self) -> None:
         """Undo registrations made through the plugin helper API."""
