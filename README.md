@@ -24,6 +24,8 @@ Key ideas
 
 - Minimal core: keep the foundation small and stable; optional behaviors live
   in plugins.
+- Reconnect supervision: the controller reconnects and resubscribes GBXRemote
+  callbacks after the dedicated server restarts or drops the socket.
 - Typed events: GBX callbacks are translated into typed dataclasses whenever
   possible, making handlers clearer and safer.
 - Chat routing: slash-prefixed chat is kept private as command events, while
@@ -46,6 +48,28 @@ Core components
   sessions for plugins and the core.
 - `PluginRegistry` / plugin API — discovery, dependency resolution, setup and
   teardown lifecycles for plugins.
+
+Reconnect supervision
+---------------------
+
+TrackHelm waits for the first GBXRemote connection before plugin setup, then
+keeps supervising the session while the controller runs. If the dedicated server
+restarts or the socket is closed, pending GBX calls fail fast with
+`ConnectionClosed`, the controller reconnects with exponential backoff, and
+callbacks plus manual chat routing are enabled again on the new session. If the
+server does not come back within the configured retry time, TrackHelm shuts down
+through the normal plugin/core teardown path.
+
+Reconnect behavior is configured in `trackhelm.toml`:
+
+```toml
+[reconnect]
+enabled = true
+initial_delay_seconds = 1.0
+max_delay_seconds = 30.0
+multiplier = 2.0
+max_retry_time_seconds = 300.0
+```
 
 Chat commands
 -------------

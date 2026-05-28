@@ -93,39 +93,43 @@ class GbxClient(GbxMethodsMixin):
     async def connect(self) -> None:
         logger.info("Connecting to %s:%s", self.host, self.port)
 
-        self._reader, self._writer = await asyncio.open_connection(
-            self.host,
-            self.port,
-        )
+        await self.shutdown()
 
-        await self._perform_handshake()
+        try:
+            self._reader, self._writer = await asyncio.open_connection(
+                self.host,
+                self.port,
+            )
 
-        self._listener_task = asyncio.create_task(
-            self._listen_loop(),
-            name="gbx-listener",
-        )
+            await self._perform_handshake()
 
-        auth_ok = await self.authenticate(self.username, self.password)
+            self._listener_task = asyncio.create_task(
+                self._listen_loop(),
+                name="gbx-listener",
+            )
 
-        if not auth_ok:
-            raise AuthenticationError("Authentication failed")
+            auth_ok = await self.authenticate(self.username, self.password)
 
-        # Use the typed wrapper from GbxMethodsMixin instead of calling
-        # the XML-RPC method directly.
-        await self.enable_callbacks(True)
+            if not auth_ok:
+                raise AuthenticationError("Authentication failed")
 
-        if self.chat_router is not None:
-            await self.chat_enable_manual_routing(True, False)
+            # Use the typed wrapper from GbxMethodsMixin instead of calling
+            # the XML-RPC method directly.
+            await self.enable_callbacks(True)
 
-        self._connected = True
+            if self.chat_router is not None:
+                await self.chat_enable_manual_routing(True, False)
 
-        logger.info("Connected to TMNF server")
+            self._connected = True
+
+            logger.info("Connected to TMNF server")
+        except Exception:
+            await self.shutdown()
+            raise
 
     async def listen(self, event_bus: EventBus | None = None) -> None:
         if event_bus is not None:
             self.event_bus = event_bus
-
-        await self.event_bus.start()
 
         if self._listener_task is None:
             raise ConnectionClosed("Not connected")
@@ -141,7 +145,7 @@ class GbxClient(GbxMethodsMixin):
         if self._listener_task:
             self._listener_task.cancel()
 
-            with suppress(asyncio.CancelledError):
+            with suppress(asyncio.CancelledError, Exception):
                 await self._listener_task
 
         for task in list(self._callback_tasks):
@@ -159,7 +163,12 @@ class GbxClient(GbxMethodsMixin):
 
         if self._writer:
             self._writer.close()
-            await self._writer.wait_closed()
+            with suppress(OSError):
+                await self._writer.wait_closed()
+
+        self._reader = None
+        self._writer = None
+        self._listener_task = None
 
         logger.info("GBX client shutdown complete")
 
@@ -170,7 +179,8 @@ class GbxClient(GbxMethodsMixin):
         *,
         timeout: float | None = None,
     ) -> Any:
-        if not self._writer:
+        listener_running = self._listener_task is not None and not self._listener_task.done()
+        if not self._writer or not (self._connected or listener_running):
             raise ConnectionClosed("Not connected")
 
         params = params or []
@@ -198,6 +208,10 @@ class GbxClient(GbxMethodsMixin):
 
         except asyncio.TimeoutError as exc:
             raise RequestTimeout(method) from exc
+
+        except (ConnectionError, OSError) as exc:
+            self._connected = False
+            raise ConnectionClosed("Connection lost") from exc
 
         finally:
             async with self._pending_lock:
@@ -235,9 +249,15 @@ class GbxClient(GbxMethodsMixin):
         except asyncio.CancelledError:
             raise
 
+        except (asyncio.IncompleteReadError, ConnectionError, OSError) as exc:
+            logger.warning("GBX listener lost connection: %s", exc)
+            self._connected = False
+            raise ConnectionClosed("Connection lost") from exc
+
         except Exception:
             logger.exception("GBX listener crashed")
             self._connected = False
+            raise
 
     async def _read_packet(self) -> None:
         if not self._reader:
