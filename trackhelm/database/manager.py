@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,3 +56,9 @@ class DatabaseManager:
         """Dispose of the engine and its connection pool."""
 
         await self.engine.dispose()
+
+    async def check_reachable(self) -> None:
+        """Run a lightweight query to verify database reachability."""
+
+        async with self.engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))

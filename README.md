@@ -111,6 +111,18 @@ async def setup(self) -> None:
 The controller emits this empty event once per second while it is running and
 skips catch-up bursts if the event loop is delayed.
 
+Lifecycle and health
+--------------------
+
+Plugins can inspect `controller.state`, `controller.ready`, and
+`await controller.health()` to understand startup, degraded reconnect, and
+shutdown state. Lifecycle changes are also emitted as the typed
+`ControllerStateChanged` event so plugins can react without polling.
+
+If plugin setup fails partway through startup, TrackHelm records the failing
+plugin, tears down already-ready plugins, removes helper-registered event/chat
+side effects, and shuts core services down cleanly.
+
 When to use trackhelm
 ----------------------
 

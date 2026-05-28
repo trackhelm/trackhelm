@@ -51,6 +51,22 @@ class EventBus:
         self._tasks: list[asyncio.Task[None]] = []
         self._running = False
 
+    @property
+    def running(self) -> bool:
+        return self._running
+
+    @property
+    def queue_size(self) -> int:
+        return self._queue.qsize()
+
+    @property
+    def queue_max_size(self) -> int:
+        return self._queue.maxsize
+
+    @property
+    def worker_count(self) -> int:
+        return len(self._tasks)
+
     @overload
     def subscribe(
         self, event: str, handler: Callable[[Event], Awaitable[None] | None]

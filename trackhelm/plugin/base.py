@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 ConfigT = TypeVar("ConfigT", bound=PluginConfig)
 EventT = TypeVar("EventT", bound=BaseEvent)
 AsyncHandler = Callable[[EventT], Awaitable[None] | None]
+TrackedHandler = Callable[..., Awaitable[None] | None]
 
 
 class Plugin(ABC, Generic[ConfigT]):
@@ -37,6 +38,7 @@ class Plugin(ABC, Generic[ConfigT]):
 
     controller: Controller
     _config: ConfigT
+    _subscriptions: list[tuple[type[BaseEvent], TrackedHandler]]
 
     @property
     @abstractmethod
@@ -55,6 +57,8 @@ class Plugin(ABC, Generic[ConfigT]):
 
     def subscribe(self, event_type: type[EventT], handler: AsyncHandler[EventT]) -> None:
         self.controller.bus.subscribe(event_type, handler)
+        self._ensure_tracking()
+        self._subscriptions.append((event_type, handler))
 
     def register_chat_command(
         self,
@@ -74,6 +78,21 @@ class Plugin(ABC, Generic[ConfigT]):
 
     def register_chat_router(self, handler: ChatRouterHandler) -> None:
         self.controller.register_chat_router(self.name, handler)
+
+    def cleanup_registered_side_effects(self) -> None:
+        """Undo registrations made through the plugin helper API."""
+
+        self._ensure_tracking()
+
+        for event_type, handler in reversed(self._subscriptions):
+            self.controller.bus.unsubscribe(event_type, handler)
+        self._subscriptions.clear()
+
+        self.controller.chat.unregister_plugin(self.name)
+
+    def _ensure_tracking(self) -> None:
+        if not hasattr(self, "_subscriptions"):
+            self._subscriptions = []
 
     @property
     def db(self) -> DatabaseManager:
