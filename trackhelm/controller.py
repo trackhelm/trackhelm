@@ -15,6 +15,7 @@ from .eventbus.bus import EventBus
 from .eventbus.events import ControllerTick
 from .gbx.client import GbxClient
 from .gbx.exceptions import AuthenticationError
+from .gbx.exceptions import ConnectionClosed
 from .logging import setup_logging
 from .plugin.base import Plugin
 from .plugin.loader import load_enabled_plugins
@@ -88,12 +89,23 @@ class Controller:
                 raise
             except asyncio.CancelledError:
                 raise
+            except OSError as exc:
+                if not reconnect.enabled:
+                    raise
+
+                logger.warning(
+                    "Initial GBX connection failed (%s); retrying in %.1f second(s)",
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
             except Exception:
                 if not reconnect.enabled:
                     raise
 
                 logger.exception(
-                    "Initial GBX connection failed; retrying in %.1f second(s)",
+                    "Initial GBX connection failed unexpectedly; retrying in %.1f second(s)",
                     delay,
                 )
                 await asyncio.sleep(delay)
@@ -105,13 +117,33 @@ class Controller:
 
         while True:
             try:
+                if not self.gbx.connected:
+                    await self._sleep_before_gbx_reconnect(delay)
+                    try:
+                        await self.gbx.connect()
+                    except OSError as exc:
+                        logger.warning("GBX reconnect attempt failed: %s", exc)
+                        delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
+                        continue
+                    else:
+                        delay = reconnect.initial_delay_seconds
+
                 await self.gbx.listen(self.bus)
-                raise ConnectionError("GBX listener ended")
+                raise ConnectionClosed("GBX listener ended")
             except asyncio.CancelledError:
                 raise
             except AuthenticationError:
                 logger.exception("GBX authentication failed; reconnect supervision stopped")
                 raise
+            except (ConnectionClosed, OSError) as exc:
+                logger.warning("GBX session disconnected: %s", exc)
+                await self.gbx.disconnect()
+
+                if not reconnect.enabled:
+                    logger.error("GBX reconnect is disabled; supervision stopped")
+                    return
+
+                delay = reconnect.initial_delay_seconds
             except Exception:
                 logger.exception("GBX session ended unexpectedly")
                 await self.gbx.disconnect()
@@ -120,22 +152,11 @@ class Controller:
                     logger.error("GBX reconnect is disabled; supervision stopped")
                     return
 
-                logger.info("Reconnecting to GBX in %.1f second(s)", delay)
-                await asyncio.sleep(delay)
+                delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
 
-                try:
-                    await self.gbx.connect()
-                except AuthenticationError:
-                    logger.exception("GBX authentication failed; reconnect supervision stopped")
-                    raise
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    logger.exception("GBX reconnect attempt failed")
-                    delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
-                    continue
-
-                delay = reconnect.initial_delay_seconds
+    async def _sleep_before_gbx_reconnect(self, delay: float) -> None:
+        logger.info("Reconnecting to GBX in %.1f second(s)", delay)
+        await asyncio.sleep(delay)
 
     async def _stop_gbx_supervision(self) -> None:
         if self._gbx_task is None:
