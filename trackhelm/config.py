@@ -45,6 +45,7 @@ class ReconnectConfig(BaseModel):
     initial_delay_seconds: float = Field(default=1.0, ge=0.0)
     max_delay_seconds: float = Field(default=30.0, ge=0.0)
     multiplier: float = Field(default=2.0, ge=1.0)
+    max_retry_time_seconds: float = Field(default=300.0, ge=0.0)
 
 
 class PluginsConfig(BaseModel):

@@ -56,7 +56,9 @@ TrackHelm waits for the first GBXRemote connection before plugin setup, then
 keeps supervising the session while the controller runs. If the dedicated server
 restarts or the socket is closed, pending GBX calls fail fast with
 `ConnectionClosed`, the controller reconnects with exponential backoff, and
-callbacks plus manual chat routing are enabled again on the new session.
+callbacks plus manual chat routing are enabled again on the new session. If the
+server does not come back within the configured retry time, TrackHelm shuts down
+through the normal plugin/core teardown path.
 
 Reconnect behavior is configured in `trackhelm.toml`:
 
@@ -66,6 +68,7 @@ enabled = true
 initial_delay_seconds = 1.0
 max_delay_seconds = 30.0
 multiplier = 2.0
+max_retry_time_seconds = 300.0
 ```
 
 Chat commands

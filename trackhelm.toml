@@ -23,6 +23,7 @@ enabled = true
 initial_delay_seconds = 1.0
 max_delay_seconds = 30.0
 multiplier = 2.0
+max_retry_time_seconds = 50.0
 
 [plugins]
 # List of enabled plugin keys

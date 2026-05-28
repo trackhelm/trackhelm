@@ -25,6 +25,10 @@ from .plugin.registry import PluginRegistry
 logger = logging.getLogger(__name__)
 
 
+class _ReconnectTimeoutError(Exception):
+    """Raised when GBX reconnect attempts exceed the configured time budget."""
+
+
 class Controller:
     """Application controller coordinating core services and plugins."""
 
@@ -42,9 +46,13 @@ class Controller:
         self._registry = PluginRegistry()
         self._gbx_task: asyncio.Task[None] | None = None
         self._tick_task: asyncio.Task[None] | None = None
+        self._shutdown_event: asyncio.Event | None = None
 
     async def start(self) -> None:
         """Start core services and schedule GBX supervision."""
+
+        if self._shutdown_event is None:
+            self._shutdown_event = asyncio.Event()
 
         await self.bus.start()
         await self._connect_gbx_for_startup()
@@ -80,6 +88,7 @@ class Controller:
     async def _connect_gbx_for_startup(self) -> None:
         reconnect = self.config.reconnect
         delay = reconnect.initial_delay_seconds
+        started_at = asyncio.get_running_loop().time()
 
         while True:
             try:
@@ -93,32 +102,62 @@ class Controller:
                 if not reconnect.enabled:
                     raise
 
+                if self._reconnect_time_exceeded(started_at):
+                    raise _ReconnectTimeoutError(
+                        "Initial GBX connection retry time exceeded"
+                    ) from exc
+
                 logger.warning(
                     "Initial GBX connection failed (%s); retrying in %.1f second(s)",
                     exc,
-                    delay,
+                    self._next_reconnect_sleep(started_at, delay),
                 )
-                await asyncio.sleep(delay)
+                await asyncio.sleep(self._next_reconnect_sleep(started_at, delay))
                 delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
             except Exception:
                 if not reconnect.enabled:
                     raise
 
+                if self._reconnect_time_exceeded(started_at):
+                    raise _ReconnectTimeoutError("Initial GBX connection retry time exceeded")
+
                 logger.exception(
                     "Initial GBX connection failed unexpectedly; retrying in %.1f second(s)",
-                    delay,
+                    self._next_reconnect_sleep(started_at, delay),
                 )
-                await asyncio.sleep(delay)
+                await asyncio.sleep(self._next_reconnect_sleep(started_at, delay))
                 delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
 
     async def _gbx_supervision_loop(self) -> None:
         reconnect = self.config.reconnect
         delay = reconnect.initial_delay_seconds
+        retry_started_at: float | None = None
 
         while True:
             try:
                 if not self.gbx.connected:
-                    await self._sleep_before_gbx_reconnect(delay)
+                    if retry_started_at is None:
+                        retry_started_at = asyncio.get_running_loop().time()
+
+                    if self._reconnect_time_exceeded(retry_started_at):
+                        logger.error(
+                            "GBX reconnect retry time exceeded %.1f second(s); shutting down",
+                            reconnect.max_retry_time_seconds,
+                        )
+                        self._request_shutdown()
+                        return
+
+                    await self._sleep_before_gbx_reconnect(
+                        self._next_reconnect_sleep(retry_started_at, delay)
+                    )
+                    if self._reconnect_time_exceeded(retry_started_at):
+                        logger.error(
+                            "GBX reconnect retry time exceeded %.1f second(s); shutting down",
+                            reconnect.max_retry_time_seconds,
+                        )
+                        self._request_shutdown()
+                        return
+
                     try:
                         await self.gbx.connect()
                     except OSError as exc:
@@ -126,6 +165,7 @@ class Controller:
                         delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
                         continue
                     else:
+                        retry_started_at = None
                         delay = reconnect.initial_delay_seconds
 
                 await self.gbx.listen(self.bus)
@@ -143,6 +183,7 @@ class Controller:
                     logger.error("GBX reconnect is disabled; supervision stopped")
                     return
 
+                retry_started_at = asyncio.get_running_loop().time()
                 delay = reconnect.initial_delay_seconds
             except Exception:
                 logger.exception("GBX session ended unexpectedly")
@@ -152,11 +193,28 @@ class Controller:
                     logger.error("GBX reconnect is disabled; supervision stopped")
                     return
 
+                if retry_started_at is None:
+                    retry_started_at = asyncio.get_running_loop().time()
+
                 delay = min(delay * reconnect.multiplier, reconnect.max_delay_seconds)
 
     async def _sleep_before_gbx_reconnect(self, delay: float) -> None:
         logger.info("Reconnecting to GBX in %.1f second(s)", delay)
         await asyncio.sleep(delay)
+
+    def _next_reconnect_sleep(self, started_at: float, delay: float) -> float:
+        reconnect = self.config.reconnect
+        elapsed = asyncio.get_running_loop().time() - started_at
+        remaining = max(0.0, reconnect.max_retry_time_seconds - elapsed)
+        return min(delay, remaining)
+
+    def _reconnect_time_exceeded(self, started_at: float) -> bool:
+        elapsed = asyncio.get_running_loop().time() - started_at
+        return elapsed >= self.config.reconnect.max_retry_time_seconds
+
+    def _request_shutdown(self) -> None:
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
 
     async def _stop_gbx_supervision(self) -> None:
         if self._gbx_task is None:
@@ -244,10 +302,14 @@ class Controller:
     async def _main(self) -> None:
         try:
             await self.start()
-            await asyncio.Event().wait()
+            if self._shutdown_event is None:
+                self._shutdown_event = asyncio.Event()
+            await self._shutdown_event.wait()
         except KeyboardInterrupt:
             pass
         except asyncio.CancelledError:
             pass
+        except _ReconnectTimeoutError as exc:
+            logger.error("%s; shutting down", exc)
         finally:
             await self.stop()
